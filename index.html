@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Азбука Морзе — Интерактив</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #1a1a1a;
+            color: #efefef;
+        }
+        .card {
+            background: #2d2d2d;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            text-align: center;
+            width: 350px;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            border: none;
+            box-sizing: border-box;
+        }
+        .output {
+            min-height: 50px;
+            margin: 20px 0;
+            font-size: 1.5rem;
+            letter-spacing: 3px;
+            color: #ffcc00;
+            word-wrap: break-word;
+        }
+        .manual-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background: #444;
+            color: white;
+            transition: 0.2s;
+        }
+        button:hover { background: #555; }
+        button:active { background: #ffcc00; color: black; }
+        .btn-big {
+            font-size: 2rem;
+            flex: 1;
+            background: #3a3a3a;
+            border: 2px solid #555;
+        }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Морзе-Декодер</h2>
+    
+    <input type="text" id="textInput" placeholder="Введите текст для перевода" oninput="translateText()">
+    <div id="output" class="output"></div>
+    
+    <hr style="border: 0.5px solid #444;">
+    
+    <p>Ручной ввод (со звуком):</p>
+    <div class="manual-controls">
+        <button class="btn-big" onmousedown="startTone()" onmouseup="stopTone()" onmouseleave="stopTone()">•</button>
+        <button class="btn-big" onmousedown="startTone()" onmouseup="stopTone()" onmouseleave="stopTone()">—</button>
+    </div>
+</div>
+
+<script>
+    // Словарь (упрощенный пример)
+    const dictionary = {
+        'А': '.-', 'Б': '-...', 'В': '.--', 'Г': '--.', 'Д': '-..', 'Е': '.', 'Ж': '...-', 
+        'З': '--..', 'И': '..', 'Й': '.---', 'К': '-.-', 'Л': '.-..', 'М': '--', 'Н': '-.', 
+        'О': '---', 'П': '.--.', 'Р': '.-.', 'С': '...', 'Т': '-', 'У': '..-', 'Ф': '..-.', 
+        'Х': '....', 'Ц': '-.-.', 'Ч': '---.', 'Ш': '----', 'Щ': '--.-', 'Ы': '-.--', 
+        'Ь': '-..-', 'Э': '..-..', 'Ю': '..--', 'Я': '.-.-',
+        '1': '.----', '2': '..---', '3': '...--', '4': '....-', '5': '.....',
+        ' ': '/'
+    };
+
+    // Настройка звука (Web Audio API)
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    let oscillator = null;
+
+    function startTone() {
+        if (oscillator) return; // Чтобы не спамить звуком
+        oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(600, audioCtx.currentTime); // Частота писка
+        
+        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime); // Громкость
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        
+        oscillator.start();
+    }
+
+    function stopTone() {
+        if (oscillator) {
+            oscillator.stop();
+            oscillator.disconnect();
+            oscillator = null;
+        }
+    }
+
+    function translateText() {
+        const input = document.getElementById('textInput').value.toUpperCase();
+        const outputElement = document.getElementById('output');
+        
+        const result = input.split('').map(char => {
+            return dictionary[char] || (/[A-Z]/.test(char) ? '?' : char);
+        }).join(' ');
+        
+        outputElement.innerText = result;
+    }
+</script>
+
+</body>
+</html>
