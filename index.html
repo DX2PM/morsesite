@@ -2,134 +2,178 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Азбука Морзе — Интерактив</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Морзе Мастер</title>
     <style>
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', sans-serif;
             display: flex;
-            flex-direction: column;
-            align-items: center;
             justify-content: center;
-            height: 100vh;
+            align-items: center;
+            min-height: 100vh;
             margin: 0;
-            background-color: #1a1a1a;
-            color: #efefef;
+            background-color: #121212;
+            color: white;
         }
-        .card {
-            background: #2d2d2d;
+        .container {
+            background: #1e1e1e;
             padding: 2rem;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+            width: 90%;
+            max-width: 450px;
             text-align: center;
-            width: 350px;
         }
         input {
             width: 100%;
-            padding: 10px;
-            margin-bottom: 10px;
-            border-radius: 5px;
-            border: none;
+            padding: 12px;
+            background: #2b2b2b;
+            border: 1px solid #444;
+            color: #ffcc00;
+            border-radius: 8px;
+            font-size: 1rem;
+            margin-bottom: 15px;
             box-sizing: border-box;
         }
         .output {
-            min-height: 50px;
-            margin: 20px 0;
-            font-size: 1.5rem;
-            letter-spacing: 3px;
-            color: #ffcc00;
+            font-size: 1.4rem;
+            letter-spacing: 4px;
+            color: #00ff88;
+            min-height: 60px;
+            margin: 15px 0;
             word-wrap: break-word;
         }
-        .manual-controls {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
             margin-top: 20px;
         }
         button {
-            padding: 10px 20px;
-            cursor: pointer;
+            padding: 15px;
             border: none;
-            border-radius: 5px;
-            background: #444;
-            color: white;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
             transition: 0.2s;
+            font-size: 1.1rem;
         }
-        button:hover { background: #555; }
-        button:active { background: #ffcc00; color: black; }
-        .btn-big {
-            font-size: 2rem;
-            flex: 1;
-            background: #3a3a3a;
-            border: 2px solid #555;
-        }
+        .btn-play { background: #007bff; color: white; grid-column: span 2; }
+        .btn-play:hover { background: #0056b3; }
+        .btn-manual { background: #444; color: white; font-size: 2rem; }
+        .btn-manual:active { background: #ffcc00; color: #000; }
+        
+        .hint { font-size: 0.8rem; color: #888; margin-top: 10px; }
     </style>
 </head>
 <body>
 
-<div class="card">
+<div class="container">
     <h2>Морзе-Декодер</h2>
     
-    <input type="text" id="textInput" placeholder="Введите текст для перевода" oninput="translateText()">
+    <input type="text" id="textInput" placeholder="Введите текст..." oninput="translate()">
     <div id="output" class="output"></div>
-    
-    <hr style="border: 0.5px solid #444;">
-    
-    <p>Ручной ввод (со звуком):</p>
-    <div class="manual-controls">
-        <button class="btn-big" onmousedown="startTone()" onmouseup="stopTone()" onmouseleave="stopTone()">•</button>
-        <button class="btn-big" onmousedown="startTone()" onmouseup="stopTone()" onmouseleave="stopTone()">—</button>
+
+    <button class="btn-play" onclick="playFullSequence()">▶ Прослушать всё</button>
+
+    <div class="controls">
+        <button class="btn-manual" onmousedown="startTone()" onmouseup="stopTone()" onmouseleave="stopTone()">•</button>
+        <button class="btn-manual" onmousedown="startTone()" onmouseup="stopTone()" onmouseleave="stopTone()">—</button>
     </div>
+    
+    <div class="hint">Ручные кнопки работают со звуком</div>
 </div>
 
 <script>
-    // Словарь (упрощенный пример)
     const dictionary = {
         'А': '.-', 'Б': '-...', 'В': '.--', 'Г': '--.', 'Д': '-..', 'Е': '.', 'Ж': '...-', 
         'З': '--..', 'И': '..', 'Й': '.---', 'К': '-.-', 'Л': '.-..', 'М': '--', 'Н': '-.', 
         'О': '---', 'П': '.--.', 'Р': '.-.', 'С': '...', 'Т': '-', 'У': '..-', 'Ф': '..-.', 
         'Х': '....', 'Ц': '-.-.', 'Ч': '---.', 'Ш': '----', 'Щ': '--.-', 'Ы': '-.--', 
-        'Ь': '-..-', 'Э': '..-..', 'Ю': '..--', 'Я': '.-.-',
-        '1': '.----', '2': '..---', '3': '...--', '4': '....-', '5': '.....',
-        ' ': '/'
+        'Ь': '-..-', 'Э': '..-..', 'Ю': '..--', 'Я': '.-.-', ' ': '/'
     };
 
-    // Настройка звука (Web Audio API)
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    let oscillator = null;
+    let osc = null;
+    let gain = null;
 
+    // Параметры времени (в секундах)
+    const dotTime = 0.1; 
+    const dashTime = dotTime * 3;
+    const pauseBetweenSymbols = dotTime;
+    const pauseBetweenLetters = dotTime * 3;
+
+    function createOscillator() {
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = 'sine';
+        o.frequency.setValueAtTime(600, audioCtx.currentTime);
+        g.gain.setValueAtTime(0, audioCtx.currentTime);
+        o.connect(g);
+        g.connect(audioCtx.destination);
+        o.start();
+        return { o, g };
+    }
+
+    // Ручной звук
     function startTone() {
-        if (oscillator) return; // Чтобы не спамить звуком
-        oscillator = audioCtx.createOscillator();
-        const gainNode = audioCtx.createGain();
-        
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(600, audioCtx.currentTime); // Частота писка
-        
-        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime); // Громкость
-        
-        oscillator.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
-        
-        oscillator.start();
+        if (!osc) {
+            const nodes = createOscillator();
+            osc = nodes.o;
+            gain = nodes.g;
+        }
+        gain.gain.setTargetAtTime(0.1, audioCtx.currentTime, 0.01);
     }
 
     function stopTone() {
-        if (oscillator) {
-            oscillator.stop();
-            oscillator.disconnect();
-            oscillator = null;
+        if (gain) {
+            gain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.01);
+            setTimeout(() => {
+                if (osc) { osc.stop(); osc = null; gain = null; }
+            }, 50);
         }
     }
 
-    function translateText() {
-        const input = document.getElementById('textInput').value.toUpperCase();
-        const outputElement = document.getElementById('output');
-        
-        const result = input.split('').map(char => {
-            return dictionary[char] || (/[A-Z]/.test(char) ? '?' : char);
-        }).join(' ');
-        
-        outputElement.innerText = result;
+    function translate() {
+        const text = document.getElementById('textInput').value.toUpperCase();
+        const code = text.split('').map(c => dictionary[c] || '').join(' ');
+        document.getElementById('output').innerText = code;
+    }
+
+    // Автопроигрывание всей строки
+    async function playFullSequence() {
+        if (audioCtx.state === 'suspended') await audioCtx.resume();
+        const code = document.getElementById('output').innerText;
+        if (!code) return;
+
+        for (let char of code) {
+            if (char === '.') {
+                await beep(dotTime);
+            } else if (char === '-') {
+                await beep(dashTime);
+            } else if (char === ' ') {
+                await sleep(pauseBetweenLetters);
+            } else if (char === '/') {
+                await sleep(dotTime * 7);
+            }
+            await sleep(pauseBetweenSymbols);
+        }
+    }
+
+    function beep(duration) {
+        return new Promise(resolve => {
+            const { o, g } = createOscillator();
+            g.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            setTimeout(() => {
+                g.gain.setTargetAtTime(0, audioCtx.currentTime, 0.01);
+                o.stop(audioCtx.currentTime + 0.05);
+                resolve();
+            }, duration * 1000);
+        });
+    }
+
+    function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms * 1000));
     }
 </script>
 
